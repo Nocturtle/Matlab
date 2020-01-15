@@ -465,7 +465,7 @@ classdef sleepscoringassist_beta6 < matlab.apps.AppBase
             
         end
         
-        function psd = mypmtm(~,xin,fs,bins_per_hz)
+        function psd = my_local_pmtm(~,xin,fs,bins_per_hz)
             [m, n] = size(xin);%m=length of signal, n=num signals
             k=fs*bins_per_hz;
             nfft = 2^nextpow2(m+k-1);%- Length for power-of-two fft.
@@ -501,6 +501,15 @@ classdef sleepscoringassist_beta6 < matlab.apps.AppBase
         
                 psd(:,1+indx(i):indx(i+1))=gather(x(1:bins_per_hz*100,:));
             end
+        end
+        
+        function x = local_nanzscore(~,X,varargin)
+            if nargin == 1, dim=1; 
+            else, dim=varargin{1}; 
+            end
+            xmu=nanmean(X,dim);
+            xsigma=nanstd(X,0,dim);
+            x=(X-xmu)./xsigma;
         end
     end
     
@@ -1320,7 +1329,7 @@ classdef sleepscoringassist_beta6 < matlab.apps.AppBase
                 zc=zeros(ne,ns);
                 try %try to use gpu
                     gpuDevice(1);
-                    for i=1:ns, psd(:,:,i)=mypmtm(app,data{i}',fs,b); end %calculate power spectral density
+                    for i=1:ns, psd(:,:,i)=my_local_pmtm(app,data{i}',fs,b); end %calculate power spectral density
                     g=gpuDevice(1);
                     for i=1:ns %count zero crossings
                         [m,n]=size(data{i});
@@ -1378,8 +1387,8 @@ m=app.outlierremovalmethodDropDown.Value;
                             T=T-.1;
                             while(sum(aL|aH))>0
                                 A=~A_L&~A_H;
-                                aL=nanzscore(dat(A))<-T;
-                                aH=nanzscore(dat(A))>T;
+                                aL=local_nanzscore(app,dat(A))<-T;
+                                aH=local_nanzscore(app,dat(A))>T;
                                 A_H(A)=aH;
                                 A_L(A)=aL;
                             end
