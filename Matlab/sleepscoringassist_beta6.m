@@ -99,18 +99,11 @@ classdef sleepscoringassist_beta6 < matlab.apps.AppBase
         resultsfilegrid                 matlab.ui.container.GridLayout
         ExportTable                     matlab.ui.control.Table
         ExportDone                      matlab.ui.control.Button
-        CompareCheckBox                 matlab.ui.control.CheckBox
         outputfilesuffixEditField       matlab.ui.control.EditField
         outputfilesuffixLabel           matlab.ui.control.Label
         rosettaStone                    matlab.ui.control.Table
         WhattowritetotheresultsfileLabel  matlab.ui.control.Label
-        FFTavgstateTab                  matlab.ui.container.Tab
-        FFTavgstateGrid                 matlab.ui.container.GridLayout
-        FFTavgstateTabGroup             matlab.ui.container.TabGroup
-        Tab                             matlab.ui.container.Tab
-        Tab2                            matlab.ui.container.Tab
-        WIPTab                          matlab.ui.container.Tab
-        plaintextButton                 matlab.ui.control.Button
+        plaintextoutputButton           matlab.ui.control.Button
     end
 
     
@@ -639,35 +632,6 @@ classdef sleepscoringassist_beta6 < matlab.apps.AppBase
                 app.updateExportList = false;
                 end
                 
-                tg=app.FFTavgstateTabGroup;
-                if ~isempty(tg.Children)
-                    for i=1:length(tg.Children)
-                        delete(tg.Children(end));
-                    end
-                end
-                    n=length(subjIDs);
-                    m=length(app.statelabels);
-                    
-%                     for i=1:n
-%                         h=app.subjs(i);
-%                         if isfield(h.UserData,'psd')
-%                            eegidx=str2double(strsplit(h.Children(6).Value,' '));%which signals are eeg
-%                            neeg=length(eegidx);
-%                            t=uitab(tg,'title',subjIDs{i});
-%                            g=uigridlayout(t,'padding',[0 0 0 0],"ColumnWidth",repmat({'1x'},1,m),"RowHeight",{'1x'});
-%                            lim=max(nanmean(nanmean(h.UserData.psd(:,1:end-1,1:neeg),1),3));
-%                            for j=1:m
-%                                ax=uiaxes(g);
-%                                ss=h.UserData.score==(j-1);
-%                                b=app.bandsperHz.Value;
-%                                plot(ax,1/b:1/b:100,nanmean(nanmean(h.UserData.psd(ss,1:end-1,1:neeg),1),3))%h.UserData.fs/2
-%                                set(ax,'tickdir','out','ylim',[0 lim],'xlim',[0 30])
-%                                 ax.Title.String=app.statelabels{j};
-%                                 ax.XLabel.String='Hz';
-%                                 ax.YLabel.String='power';
-%                            end
-%                         end
-%                     end
             end
         end
 
@@ -760,7 +724,7 @@ classdef sleepscoringassist_beta6 < matlab.apps.AppBase
             value=app.EpochNoSlider.Value;
             value=fix(value);
             app.EpochNo.Value=value;
-            app.EpochWindowValueChanged(app);
+            app.EpochWindowValueChanged;
         end
 
         % Value changed function: EpochNoTimestamp
@@ -868,7 +832,7 @@ classdef sleepscoringassist_beta6 < matlab.apps.AppBase
                     end
                 end
                 %plot raw data
-                            lab=[strcat(repmat({'EEG'},1,neeg)',num2str((1:neeg)'))',repmat({'EMG'},1,length(emgidx))];
+                lab=[strcat(repmat({'EEG'},1,neeg)',num2str((1:neeg)'))',repmat({'EMG'},1,length(emgidx))];
                 start=app.EpochNo.Value;
                 fs=fs(idx(end));
                 for i=1:length(data)
@@ -1371,6 +1335,9 @@ classdef sleepscoringassist_beta6 < matlab.apps.AppBase
                     temp=[temp,log(psd(:,bemg,neeg+i))];
                 end
                 
+                %%%%%%%%%%%%%%%%%%%%%%%%%
+%                 test=temp;
+                
 m=app.outlierremovalmethodDropDown.Value;
                 if m>0
                 app.updatestatus('looking for outlier epochs')% ------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1431,6 +1398,8 @@ if req>mem
     app.updatestatus(['warning, pairwise distance calculations between all epochs in this dataset requires more memory than is available. it will be analyzed in ',num2str(n),' chunks, which may affect results'])
 end
 f=F(~l,:);
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%
+%                     f=test;
 for i=1:n
         Z(:,:,i)=linkage(f(1+(i-1)*floor(ne/n):i*floor(ne/n),:),app.linkagemethodDropDown.Value,app.pdistmethodDropDown.Value);
 end
@@ -1662,35 +1631,50 @@ end
                 app.updatefeatures;
         end
 
-        % Button pushed function: plaintextButton
-        function plaintextButtonPushed(app, event)
+        % Button pushed function: plaintextoutputButton
+        function plaintextoutputButtonPushed(app, event)
+            list = app.ExportTable.Data;
+            poop=0;
             for i=1:length(app.subjs)
-                
+                if ~isempty(app.subjs(i).Children(1).Data)
+                    userdata = app.subjs(i).UserData;
+                    eL=userdata.eL;
+                    S=userdata.score;
+                    h=app.subjs(i).Children(1).Data;
+                    j=1;
+                for ii=1:size(h,1)
+                    path=list{poop+ii,2};
+                    file=list{poop+ii,3};
+                    ext='.txt';
+                    dur=seconds(duration(h(ii,4)));
+                    ne=floor(dur/eL);
+                    state=[app.statelabels(S(j:j+ne-1)+1)]';
+                    timestamp=datetime(app.findtimestamp(i,j),'inputformat','MM-dd-yy HH:mm:ss')+seconds(cumsum(ones(ne,1).*eL)-eL);
+                    out=table(timestamp,state);
+                    j=j+ne;
+                    
+                    newfile=app.checkfilename([path,file(1:end-4),app.outputfilesuffixEditField.Value,ext]);
+                    app.updatestatus(['writing ',newfile])
+                    writetable(out,newfile);
+                end
+                poop=poop+ii;
+                end
             end
+            app.updatestatus('all done!')
+            fclose all;
         end
 
         % Button pushed function: ExportDone
         function ExportDoneButtonPushed(app, event)
             list = app.ExportTable.Data;
-        if app.CompareCheckBox.Value
-%             app.updatestatus('initializing actx server');
-%             xl = actxserver('Excel.Application');
-        end
-        poop=0;
+            poop=0;
             for i=1:length(app.subjs)
                 if ~isempty(app.subjs(i).Children(1).Data)
                     userdata = app.subjs(i).UserData;
-%                     eL=str2double(userdata.eL);
                     eL=userdata.eL;
                     S=userdata.score;
                     h=app.subjs(i).Children(1).Data;
                     j=1;
-        if app.CompareCheckBox.Value
-%             xlWB = xl.Workbooks.Add;
-%             xlWB.Activate;
-%             xlSheets = xl.ActiveWorkbook.Sheets;
-        end
-err=0;
                 for ii=1:size(h,1)
                     path=list{poop+ii,2};
                     file=list{poop+ii,3};
@@ -1699,13 +1683,12 @@ err=0;
                     dur=seconds(duration(h(ii,4)));
                     ne=floor(dur/eL);
                     s=S(j:j+ne-1)+1;
-%                     ts=posixtime(datetime(app.findtimestamp(i,j),'inputformat','MM-dd-yy HH:mm:ss'));
                     ts=seconds(datetime(app.findtimestamp(i,j),'inputformat','MM-dd-yy HH:mm:ss')-datetime('01-01-0001 00:00:00','inputformat','MM-dd-yyyy HH:mm:ss'));
                     j=j+ne;
                     
                     newfile=app.checkfilename([path,file(1:end-4),app.outputfilesuffixEditField.Value,ext]);
                     copyfile(src,newfile,'f');
-%                     app.updatestatus(['writing to ',newfile])
+                    app.updatestatus(['writing ',newfile]);
                     if strcmp(ext,'.raf')
                         s=cell2mat(app.rosettaStone.Data(s,2));
                         try
@@ -1720,7 +1703,6 @@ err=0;
                             fseek(fid,(idx2+1)*2-187,-1);
                             fwrite(fid,s,'uint8',187);
                             fclose(fid);
-                            app.updatestatus(['saved ',newfile]);
                         catch ME
                             app.updatestatus(['error writing ',newfile]);
                         end
@@ -1751,77 +1733,10 @@ err=0;
                         app.updatestatus(['error: unrecognized file extension with ',file])
                         return
                     end
-                    
-        if app.CompareCheckBox.Value
-%             if strcmp(ext,'.raf')
-%                 so=app.myreadraf(src,ne);
-%             elseif strcmp(ext,'.zdb')
-%                 so=app.myreadzdb(src);
-%             else
-%                 app.updatestatus('https://xkcd.com/2200/')
-%             end
-%                 
-%                 so(so>3)=0;
-%                 so(so==3)=4; so(so==2)=3; so(so==4)=2;
-%                 s(s==2)=4; s(s==3)=2; s(s==4)=3;
-%                 if sum(so==0)==0 && sum(s==0)==0
-%                     cm=zeros(4);
-%                     cm(2:4,2:4)=confusionmat(s,so);
-%                 else
-%                     cm=confusionmat(s,so);
-%                 end
-%                 
-%                 n=length(app.statelabels);
-%                 output=cell(n+1,15);
-%                 output(1,1)={'# epochs in'};
-%                 output(2:1+n,1)=app.statelabels;
-%                 output{1,2}=src;
-%                 output{1,3}=newfile;
-%                 for iii=0:n-1
-%                     output{2+iii,2}=sum(so==iii);
-%                     output{2+iii,3}=sum(s==iii);
-%                 end
-%                 output(1,11)={'Confusion Matrix'};
-%                 output(1,12:15)=app.statelabels;
-%                 output(2:1+n,11)=app.statelabels;
-%                 output(2:1+n,12:15)=num2cell(cm);
-%                 output(1,5)={'Overall Accuracy'};
-%                 output(2,5)={'=sum(L2,M3,N4,O5)/sum(L2:O5)*100'};
-%                 output(2:1+n,7)=app.statelabels;
-%                 output(1,8:9)={'Specificity','Sensitivity'};
-%                 for iii=1:4
-%                     output(1+iii,8)={['=',xlLetters(11+iii),num2str(1+iii),'/sum(',xlLetters(11+iii),'2:',xlLetters(11+iii),'5)*100']};
-%                     output(1+iii,9)={['=',xlLetters(11+iii),num2str(1+iii),'/sum(L',num2str(1+iii),':O',num2str(1+iii),')*100']};
-%                 end
-%                 
-%             if ii==1, xlS1=xlSheets.get('Item',1); end
-%             xlSheets.Add();
-%             xlS=xlSheets.get('Item',1);
-%             xlS.Activate;
-%             xl.ActiveSheet.Name = num2str(ii);
-%             xlR=xl.ActiveSheet.get('Range',['A1:',xlLetters(size(output,2)),num2str(size(output,1))]);
-%             xlR.Value=output;
-        end
                 end
                 poop=poop+ii;
-        if app.CompareCheckBox.Value
-%             if ~err
-%             xlS1.Delete;
-%             xlfile=app.checkfilename([path,app.subjs(i).Children(8).Value,'_compare',app.outputfilesuffixEditField.Value,'.xlsx']);
-%             xlWB.SaveAs(xlfile);
-%             xlWB.Saved=1;
-%             Close(xlWB)
-%             app.updatestatus(['saved ',xlfile])
-%             else
-%             Close(xlWB)
-%             end
-        end
                 end
             end
-        if app.CompareCheckBox.Value
-%             Quit(xl)
-%             delete(xl)
-        end
             app.updatestatus('all done!')
             fclose all;
         end
@@ -1855,7 +1770,7 @@ err=0;
             app.status = uitextarea(app.GridLayout);
             app.status.Layout.Row = 2;
             app.status.Layout.Column = 1;
-            app.status.Value = {''; 'WIP Instructions (also check the tooltips!):'; '1. Select files for each subject with the ''add'' button. More subjects can be added with the ''+'' button. '; '    For each subject specify : an ID,  which signals within the file are EEG, and a downsample decimation factor. EMG is optional. '; '    Lastly, click done or switch to the analysis tab.'; '    Specifying treatment times doesn''t do anything in this version, don''t bother with it. '; '2. select a subject and specify the duration of epoch length.'; '    run analysis and assign a state to each cluster that appears. The number of clusters can be manually editted.'; '    rules for the find and replace tool can be edited on the settings tab'; '    thresholds for clusters'' features can be set to mean, median, midrange, or a specific number'; '    the ZC feature stands for ''zero crossings'''; '3. preview the results. each plots can be zoomed/rotated with the controls found by hovering the cursor at the top-right corner of the plot'; '4. Export results to a results file that was created by another program (sleepsign/neuroscore). If a file name matching the corresponding edf/kcd in located in the same directory that will automatically be chosen. Otherwise manually specify a raf/zdb to copy results into. '; ''; 'Please let me know when you find any bugs and how to reproduce them.'};
+            app.status.Value = {''; 'This program is a work in progress meant to expedite the meticulous process of manually categorizing segments of polysomnography recordings. For instructions, see the accompanying user guide.'};
 
             % Create TabGroup
             app.TabGroup = uitabgroup(app.GridLayout);
@@ -1926,6 +1841,7 @@ err=0;
             % Create SaveButton
             app.SaveButton = uibutton(app.settingsgrid, 'push');
             app.SaveButton.ButtonPushedFcn = createCallbackFcn(app, @SaveButtonPushed, true);
+            app.SaveButton.BusyAction = 'cancel';
             app.SaveButton.Interruptible = 'off';
             app.SaveButton.Tooltip = {'save all settings to text file'};
             app.SaveButton.Layout.Row = 11;
@@ -1935,6 +1851,7 @@ err=0;
             % Create LoadButton
             app.LoadButton = uibutton(app.settingsgrid, 'push');
             app.LoadButton.ButtonPushedFcn = createCallbackFcn(app, @LoadButtonPushed, true);
+            app.LoadButton.BusyAction = 'cancel';
             app.LoadButton.Interruptible = 'off';
             app.LoadButton.Tooltip = {'load settings from text file'};
             app.LoadButton.Layout.Row = 12;
@@ -1967,7 +1884,7 @@ err=0;
             app.bandsperHz.Tooltip = {'between 1 and epoch length (s)'; 'specify number of bins/Hz to calculate for FFT'};
             app.bandsperHz.Layout.Row = 2;
             app.bandsperHz.Layout.Column = 2;
-            app.bandsperHz.Value = 2;
+            app.bandsperHz.Value = 4;
 
             % Create includeZC
             app.includeZC = uicheckbox(app.epochfeaturesgrid);
@@ -2200,7 +2117,7 @@ err=0;
             % Create statelabelstable
             app.statelabelstable = uitable(app.statelabelsgrid);
             app.statelabelstable.ColumnName = {'state'; '+'; '-'};
-            app.statelabelstable.ColumnWidth = {'auto', 25, 25};
+            app.statelabelstable.ColumnWidth = {100, 25, 25};
             app.statelabelstable.RowName = {};
             app.statelabelstable.ColumnEditable = true;
             app.statelabelstable.CellEditCallback = createCallbackFcn(app, @statelabelstableCellEdit, true);
@@ -2258,6 +2175,7 @@ err=0;
             % Create runanalysisButton
             app.runanalysisButton = uibutton(app.scoregrid, 'push');
             app.runanalysisButton.ButtonPushedFcn = createCallbackFcn(app, @runanalysisButtonPushed, true);
+            app.runanalysisButton.BusyAction = 'cancel';
             app.runanalysisButton.Interruptible = 'off';
             app.runanalysisButton.Tooltip = {''};
             app.runanalysisButton.Layout.Row = [6 7];
@@ -2267,6 +2185,7 @@ err=0;
             % Create ApplyFindandReplaceRulesButton
             app.ApplyFindandReplaceRulesButton = uibutton(app.scoregrid, 'push');
             app.ApplyFindandReplaceRulesButton.ButtonPushedFcn = createCallbackFcn(app, @ApplyFindandReplaceRulesButtonPushed, true);
+            app.ApplyFindandReplaceRulesButton.BusyAction = 'cancel';
             app.ApplyFindandReplaceRulesButton.Interruptible = 'off';
             app.ApplyFindandReplaceRulesButton.Tooltip = {''};
             app.ApplyFindandReplaceRulesButton.Layout.Row = [14 15];
@@ -2294,6 +2213,7 @@ err=0;
             % Create redoclustersButton
             app.redoclustersButton = uibutton(app.scoregrid, 'push');
             app.redoclustersButton.ButtonPushedFcn = createCallbackFcn(app, @redoclustersButtonPushed, true);
+            app.redoclustersButton.BusyAction = 'cancel';
             app.redoclustersButton.Interruptible = 'off';
             app.redoclustersButton.Layout.Row = [11 12];
             app.redoclustersButton.Layout.Column = 1;
@@ -2557,31 +2477,23 @@ err=0;
             % Create ExportDone
             app.ExportDone = uibutton(app.resultsfilegrid, 'push');
             app.ExportDone.ButtonPushedFcn = createCallbackFcn(app, @ExportDoneButtonPushed, true);
+            app.ExportDone.BusyAction = 'cancel';
             app.ExportDone.Interruptible = 'off';
-            app.ExportDone.Layout.Row = 11;
-            app.ExportDone.Layout.Column = 6;
+            app.ExportDone.Layout.Row = 9;
+            app.ExportDone.Layout.Column = [5 6];
             app.ExportDone.Text = 'Done';
-
-            % Create CompareCheckBox
-            app.CompareCheckBox = uicheckbox(app.resultsfilegrid);
-            app.CompareCheckBox.Interruptible = 'off';
-            app.CompareCheckBox.Enable = 'off';
-            app.CompareCheckBox.Tooltip = {'Create excel file that compares results with scoring in the original file'};
-            app.CompareCheckBox.Text = 'Compare?';
-            app.CompareCheckBox.Layout.Row = 10;
-            app.CompareCheckBox.Layout.Column = 6;
 
             % Create outputfilesuffixEditField
             app.outputfilesuffixEditField = uieditfield(app.resultsfilegrid, 'text');
             app.outputfilesuffixEditField.Tooltip = {'this string will be appended to each data file''s name to create the names of new files'};
-            app.outputfilesuffixEditField.Layout.Row = 9;
+            app.outputfilesuffixEditField.Layout.Row = 7;
             app.outputfilesuffixEditField.Layout.Column = 6;
             app.outputfilesuffixEditField.Value = '_beta';
 
             % Create outputfilesuffixLabel
             app.outputfilesuffixLabel = uilabel(app.resultsfilegrid);
             app.outputfilesuffixLabel.HorizontalAlignment = 'right';
-            app.outputfilesuffixLabel.Layout.Row = 9;
+            app.outputfilesuffixLabel.Layout.Row = 7;
             app.outputfilesuffixLabel.Layout.Column = 5;
             app.outputfilesuffixLabel.Text = {'output'; 'file suffix'};
 
@@ -2599,39 +2511,15 @@ err=0;
             app.WhattowritetotheresultsfileLabel.Layout.Column = 5;
             app.WhattowritetotheresultsfileLabel.Text = 'What to write to the results file:';
 
-            % Create FFTavgstateTab
-            app.FFTavgstateTab = uitab(app.ExportTabGroup);
-            app.FFTavgstateTab.Title = 'FFT avg/state';
-
-            % Create FFTavgstateGrid
-            app.FFTavgstateGrid = uigridlayout(app.FFTavgstateTab);
-            app.FFTavgstateGrid.ColumnWidth = {'1x', '1x', '1x'};
-            app.FFTavgstateGrid.RowHeight = {'1x', '1x', '1x'};
-
-            % Create FFTavgstateTabGroup
-            app.FFTavgstateTabGroup = uitabgroup(app.FFTavgstateGrid);
-            app.FFTavgstateTabGroup.Layout.Row = [1 3];
-            app.FFTavgstateTabGroup.Layout.Column = [1 3];
-
-            % Create Tab
-            app.Tab = uitab(app.FFTavgstateTabGroup);
-            app.Tab.Title = 'Tab';
-
-            % Create Tab2
-            app.Tab2 = uitab(app.FFTavgstateTabGroup);
-            app.Tab2.Title = 'Tab2';
-
-            % Create WIPTab
-            app.WIPTab = uitab(app.ExportTabGroup);
-            app.WIPTab.Title = 'WIP';
-
-            % Create plaintextButton
-            app.plaintextButton = uibutton(app.WIPTab, 'push');
-            app.plaintextButton.ButtonPushedFcn = createCallbackFcn(app, @plaintextButtonPushed, true);
-            app.plaintextButton.Enable = 'off';
-            app.plaintextButton.Tooltip = {'save scoring results'; 'to txt file'};
-            app.plaintextButton.Position = [233 401 100 68];
-            app.plaintextButton.Text = 'plain text';
+            % Create plaintextoutputButton
+            app.plaintextoutputButton = uibutton(app.resultsfilegrid, 'push');
+            app.plaintextoutputButton.ButtonPushedFcn = createCallbackFcn(app, @plaintextoutputButtonPushed, true);
+            app.plaintextoutputButton.BusyAction = 'cancel';
+            app.plaintextoutputButton.Interruptible = 'off';
+            app.plaintextoutputButton.Tooltip = {'save scoring results'; 'to txt file'};
+            app.plaintextoutputButton.Layout.Row = 12;
+            app.plaintextoutputButton.Layout.Column = 6;
+            app.plaintextoutputButton.Text = 'plain text output';
 
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';
