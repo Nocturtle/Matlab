@@ -1,0 +1,300 @@
+
+%% safety
+close all
+fclose all
+clear
+clc
+%% settings : 1=enable & 0=disable unless otherwise noted
+set=struct;
+set.split=0;% enable/disable splitscreen
+set.ang{1}=[45];% angles to use for left half (or full) of screen. 0 for greyscreen, -1 for CW, -2 for CCW
+set.ang{2}=[90 360];% angles for right half (not used if splitscreen==0)
+set.sdur=8;% duration of each stimulus (seconds)
+set.srep=2;% how many times to repeat each stimulus
+set.rev=0;% enable/disable reversal of each angle specified above
+set.isidur=1;% duration of inter-stimulus-interval
+set.isicol=[0 0 0];% color of inter-stimulus-interval (0-1) [R G B]
+set.seg=4;% split the stimulus into this many segments (number of white/black bar pairs, max=126?)
+set.gsm=0;% choose gratings speed mode (0 or 1), see next two settings for details
+set.gs0=[2];% (cycles per second) this mode randomizes the gratings' speed pulling values from this list. one cycle is a bar passing from one side of the screen to the other horizontally.
+set.gs1=[4 0.25 0.5 2];% [duration(s) modul_fs(hz) min_fs(hz) max_fs(hz)] this mode modulates the gratings' speed using these parameters
+set.contrast=100;% 1-100, lowers brightness/whiteness
+set.fixsz=10;% radius (pixels) of fixation point (0 to disable)
+set.fixcol=[0 0 1;...% color(s) the fixation point will switch between [R G B; R G B; ...];
+            0 1 0;...
+            .5 .5 .5;...
+            ];
+set.fixparam=[5 0.5 .5 2];% [duration(s) modul_fs(hz) min_fs(hz) max_fs(hz)] parameters for the speed/duration that fixation point changes color
+set.fout=pwd+"default.txt";% text file name for outputing stimuli information
+
+%% uncomment to save/load settings
+% save('testVSGsettings','set');
+% load('testVSGsettings');
+
+%% setup 
+%get screen info ----------------------------------------------------
+Screen('Preference','VisualDebugLevel',1);
+Screen('Preference','SkipSyncTests',1);
+Screen('Preference','SuppressAllWarnings',1);
+PsychGPUControl('FullScreenWindowDisablesCompositor',1);
+
+ss=Screen('Screens');
+ssn=max(ss);%screens num
+% origLUT=Screen('ReadNormalizedGammaTable',ssn);
+% nLUT=size(origLUT,1);
+hz=Screen('FrameRate',ssn);
+[w,h]=Screen('WindowSize',ssn);
+
+PsychImaging('PrepareConfiguration');
+PsychImaging('AddTask','AllViews','EnableCLUTMapping');
+S=PsychImaging('OpenWindow',ssn,0);
+
+% Look-up tables ------------------------------------------------------------------
+%gratings LUT
+numLev=253;
+LUT=repmat(mod(floor(linspace(0,set.seg-.01,numLev)),2)',1,3);
+LUT(254,:)=.5;% grey 
+LUT(255,:)=set.fixcol(1,:);% reserve for fixation point
+LUT(256,:)=set.isicol;% isi
+LUT=LUT*set.contrast/100;
+Screen('LoadNormalizedGammaTable',S,LUT,2);
+
+% gratings speed LUT
+if set.gsm
+    stimdurfr=hz*set.gs1(1); %stim duration in frames
+    vel=set.gs1(1)*set.gs1(2)*pi*2;
+    WAVE = cos(linspace(0,vel,stimdurfr+1)+pi);
+    WAVE = rescale(WAVE,numLev*set.gs1(3),numLev*set.gs1(4));
+    LS = abs(diff(floor(WAVE)))';
+else
+    stimdurfr=hz*set.sdur; %stim duration in frames
+    ngs=length(set.gs0);
+    LS=zeros(stimdurfr,ngs);
+    for i=1:ngs, LS(:,i)=diff(floor(linspace(0,numLev*set.gs0(i),stimdurfr+1))); end
+end
+
+% fixation point color LUT
+if set.fixsz>0
+    fixdurfr=hz*set.fixparam(1);
+    vel=set.fixparam(1)*set.fixparam(2)*2*pi;
+    WAVE = cos(linspace(0,vel,fixdurfr)+pi);
+    WAVE = (WAVE+1)/2;
+    
+end
+
+% draw gratings textures ---------------------------------------------------
+angs=set.ang{1}(set.ang{1}>0);
+if set.split, angs=[angs,set.ang{2}(set.ang{2}>0)]; w=w/2; end
+angs=unique(angs);
+
+[x,y]=meshgrid(linspace(-1,1,w),linspace(-1,1,h));
+[a,~]=cart2pol(x.*pi,y.*pi);
+a=(a+pi)./2./pi.*numLev;
+tex(1)=Screen('MakeTexture',S,flip(a)); %CW
+tex(2)=Screen('MakeTexture',S,a); %CCW
+
+n=max(w,h);
+[x,y]=meshgrid(linspace(-1,1,n),linspace(-1,1,n));
+for i=1:length(angs)
+    g=cosd(angs(i))*x+sind(angs(i))*y;
+    g=(g+sqrt(2))/sqrt(8)*numLev;
+    tex(i+2)=Screen('MakeTexture',S,g(1:h,1:w)); %Gratings
+end
+
+% prepare test order ------------------------------------------------
+test=set.ang{1};
+if set.split, test=CombVec(test,set.ang{2}); end
+if ~set.gsm, test=CombVec(test,set.gs0); end
+test=test';
+
+testOrder=[];
+for i=1:set.srep
+    idx=Shuffle(1:size(test,1));
+    testOrder=[testOrder;test(idx,:)];
+end
+
+testIDX=testOrder;
+for i=1:length(angs)
+    testIDX(testOrder==angs(i))=i+2;
+end
+if ~set.gsm, testIDX(:,end)=mod(find(testOrder(:,end)'==set.gs0')+ngs-1,ngs)+1; end
+testIDX=abs(testIDX);
+
+% prep text output -------------------------
+testOrder=string(testOrder); 
+testOrder(strcmp(testOrder,'0'))="graystim";
+testOrder(strcmp(testOrder,'-1'))="CW";
+testOrder(strcmp(testOrder,'-2'))="CCW";
+if set.split, testOrder(:,1)=testOrder(:,1)+'_'+testOrder(:,2); testOrder(:,2)=[]; end
+if ~set.gsm, testOrder(:,1)=testOrder(:,1)+'__'+testOrder(:,2); testOrder(:,2)=[]; end
+if set.rev, testOrder=[testOrder,testOrder+'_reversal']; end
+if set.isidur>0, testOrder=[repmat("ISI",length(testOrder),1),testOrder]; end
+testOrder=reshape(testOrder',[],1);
+testOrder=[testOrder;"ISI"];
+
+abstime=zeros(length(testOrder),1);
+
+%% ?!? ------------------------------------------------------------------
+
+%% hold
+while(1), if KbStrokeWait, break; end, end
+
+%% run
+flag=true;
+TS = datetime('now');
+ts=GetSecs; j=1; k=1; l=1;
+for i=1:size(testIDX,1)
+% ISI ---------------------------------------------------------------------
+    Screen('FillRect',S,255);
+     Screen('Flip',S);
+    t0=GetSecs; t1=t0;
+    abstime(j)=ts-t0;
+    while(t1-t0<set.isidur) && flag
+        t1=GetSecs;
+        if KbCheck, flag=false; break; end
+    end, j=j+1;
+% stim ------------------------------------------------------------------
+    Screen('FillRect',S,253);
+    for ii=1:1+set.split
+        ang=testIDX(i,ii);
+        if ang~=0, Screen('DrawTexture',S,tex(ang),[],[(ii-1)*w 0 ii*w h]); end
+    end
+    if ~set.gsm, l=testIDX(i,end); end
+    vbl = Screen('Flip',S,0,1,1,0);
+    t0=GetSecs; t1=t0;
+    abstime(j)=ts-t0;
+    while(t1-t0<set.sdur) && flag
+        shift=LS(k,l);
+        LUT=LUT([1+shift:numLev,1:shift,numLev+1:end],:);
+        Screen('LoadNormalizedGammaTable',S,LUT,2);
+        Screen('Flip',S,0,1,1,0);
+
+        t1=GetSecs; k=mod(k,stimdurfr)+1;
+        if KbCheck, flag=false; break; end
+    end, j=j+1;
+% reversal ------------------------------------------------------------
+    if set.rev
+    t0=GetSecs; t1=t0;
+    abstime(j)=ts-t0;
+    while(t1-t0<set.sdur) && flag
+        shift=LS(k,l);
+        LUT=LUT([numLev-shift+1:numLev,1:numLev-shift,numLev+1:end],:);
+        Screen('LoadNormalizedGammaTable',S,LUT,2);
+        Screen('Flip',S,0,1,1,0);
+
+        t1=GetSecs; k=mod(k,stimdurfr)+1;
+        if KbCheck, flag=false; break; end
+    end, j=j+1;
+    end
+% check for user interuption ----
+    if ~flag, break; end
+end
+% last ISI ---------------------
+    Screen('FillRect',S,255);
+    Screen('Flip',S);
+    t0=GetSecs; t1=t0;
+    abstime(j)=ts-t0;
+    while(t1-t0<set.isidur) && flag
+        t1=GetSecs;
+        if KbCheck, flag=false; break; end
+    end
+
+%% wrap
+RestoreCluts;
+sca;
+%write stim log ---------------------------------------------------------------
+%     ii=1;
+%     temp = set.fout;
+%     set.fout=[set.fout,'.log'];
+%     while exist(set.fout,'file')==2
+% %         updatestatus([filename,' already exists'])
+%         set.fout=[temp,'(',num2str(ii),').log'];
+%         ii=ii+1;
+%     end
+%     updatestatus(['saving as: ',set.fout])
+%     fid = fopen(set.fout,'w');
+%     for ii=1:j-1
+%        fprintf(fid,'%s\t%s\n',datestr(TS+seconds(abstime(ii)),'mm/dd/yyyy	HH:MM:SS.FFF'),testOrder{ii});  
+%     end 
+%     fclose(fid);
+%% local funtions
+
+
+
+%% junk
+
+
+
+
+
+
+%%
+Screen('Preference','VisualDebugLevel',1);
+##Screen('Preference','SkipSyncTests',1);
+##Screen('Preference','SuppressAllWarnings',1);
+PsychGPUControl('FullScreenWindowDisablesCompositor',1);
+
+ss=Screen('Screens');
+ssn=max(ss);%screens num
+
+white=WhiteIndex(ssn);
+black=BlackIndex(ssn);
+gray=round((white+black)/2);
+if gray == white, gray=white/2; end
+
+origLUT=Screen('ReadNormalizedGammaTable',ssn);
+n=256;%size(origLUT,1);
+
+hz=Screen('FrameRate',ssn);
+
+[w,h]=Screen('WindowSize',ssn);
+[x,y]=meshgrid(linspace(0,1,w),linspace(0,1,h));
+
+angle=15;
+f=1;%*pi; %cycles/pixel
+a=cosd(angle)*f;
+b=sind(angle)*f;
+g=a.*x+b.*y;
+g=fix(g*n);%fix(g*(n-1))+1;
+
+LUT=zeros(n,3);
+LUT(end/2+1:end,:)=1;
+
+PsychImaging('PrepareConfiguration');
+PsychImaging('AddTask','AllViews','EnableCLUTMapping');
+S=PsychImaging('OpenWindow',ssn,0);
+##S=Screen('OpenWindow',ssn,0);
+##LoadIdentityClut(S);
+    Screen('LoadNormalizedGammaTable',S,LUT,2);
+tex=Screen('MakeTexture',S,g);
+
+m=1;
+
+%% hold
+Screen('FillRect',S,black);
+while(1), if KbStrokeWait, break; end, end
+%pause(0.5)
+
+%% run
+Screen('DrawTexture',S,tex(1));
+Screen('Flip',S,0,1,1,0);
+Screen('DrawTexture',S,tex(1));
+t0=GetSecs;
+t1=t0;
+
+while(t1-t0<60)
+    LUT=LUT([1+m:end,1:m],:);
+    Screen('LoadNormalizedGammaTable',S,LUT,2);
+    Screen('Flip',S,0,1,1,0);
+    
+    t1=GetSecs;
+    if KbCheck, break; end
+end
+
+%% wrap
+RestoreCluts;
+sca;
+
+##Screen('Preference','SuppressAllWarnings',0);
+##Screen('Preference','SkipSyncTests',0);
+
