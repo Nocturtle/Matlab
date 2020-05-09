@@ -1,4 +1,3 @@
-
 %% safety
 close all
 fclose all
@@ -34,8 +33,8 @@ set.fout=pwd+"default.txt";% text file name for outputing stimuli information
 %% setup 
 %get screen info ----------------------------------------------------
 Screen('Preference','VisualDebugLevel',1);
-Screen('Preference','SkipSyncTests',1);
-Screen('Preference','SuppressAllWarnings',1);
+% Screen('Preference','SkipSyncTests',1);
+% Screen('Preference','SuppressAllWarnings',1);
 PsychGPUControl('FullScreenWindowDisablesCompositor',1);
 
 ss=Screen('Screens');
@@ -229,72 +228,71 @@ sca;
 
 
 %%
-Screen('Preference','VisualDebugLevel',1);
-##Screen('Preference','SkipSyncTests',1);
-##Screen('Preference','SuppressAllWarnings',1);
-PsychGPUControl('FullScreenWindowDisablesCompositor',1);
+% Screen('Preference','VisualDebugLevel',1);
+% ##Screen('Preference','SkipSyncTests',1);
+% ##Screen('Preference','SuppressAllWarnings',1);
+% PsychGPUControl('FullScreenWindowDisablesCompositor',1);
 
-ss=Screen('Screens');
-ssn=max(ss);%screens num
+% ss=Screen('Screens');
+% ssn=max(ss);%screens num
 
-white=WhiteIndex(ssn);
-black=BlackIndex(ssn);
-gray=round((white+black)/2);
-if gray == white, gray=white/2; end
+% white=WhiteIndex(ssn);
+% black=BlackIndex(ssn);
+% gray=round((white+black)/2);
+% if gray == white, gray=white/2; end
 
-origLUT=Screen('ReadNormalizedGammaTable',ssn);
-n=256;%size(origLUT,1);
+% origLUT=Screen('ReadNormalizedGammaTable',ssn);
+% n=256;%size(origLUT,1);
 
-hz=Screen('FrameRate',ssn);
+% hz=Screen('FrameRate',ssn);
 
-[w,h]=Screen('WindowSize',ssn);
-[x,y]=meshgrid(linspace(0,1,w),linspace(0,1,h));
+% [w,h]=Screen('WindowSize',ssn);
+% [x,y]=meshgrid(linspace(0,1,w),linspace(0,1,h));
 
-angle=15;
-f=1;%*pi; %cycles/pixel
-a=cosd(angle)*f;
-b=sind(angle)*f;
-g=a.*x+b.*y;
-g=fix(g*n);%fix(g*(n-1))+1;
+% angle=15;
+% f=1;%*pi; %cycles/pixel
+% a=cosd(angle)*f;
+% b=sind(angle)*f;
+% g=a.*x+b.*y;
+% g=fix(g*n);%fix(g*(n-1))+1;
 
-LUT=zeros(n,3);
-LUT(end/2+1:end,:)=1;
+% LUT=zeros(n,3);
+% LUT(end/2+1:end,:)=1;
 
-PsychImaging('PrepareConfiguration');
-PsychImaging('AddTask','AllViews','EnableCLUTMapping');
-S=PsychImaging('OpenWindow',ssn,0);
-##S=Screen('OpenWindow',ssn,0);
-##LoadIdentityClut(S);
-    Screen('LoadNormalizedGammaTable',S,LUT,2);
-tex=Screen('MakeTexture',S,g);
+% PsychImaging('PrepareConfiguration');
+% PsychImaging('AddTask','AllViews','EnableCLUTMapping');
+% S=PsychImaging('OpenWindow',ssn,0);
+% ##S=Screen('OpenWindow',ssn,0);
+% ##LoadIdentityClut(S);
+    % Screen('LoadNormalizedGammaTable',S,LUT,2);
+% tex=Screen('MakeTexture',S,g);
 
-m=1;
+% m=1;
 
-%% hold
-Screen('FillRect',S,black);
-while(1), if KbStrokeWait, break; end, end
-%pause(0.5)
+% %% hold
+% Screen('FillRect',S,black);
+% while(1), if KbStrokeWait, break; end, end
+% %pause(0.5)
 
-%% run
-Screen('DrawTexture',S,tex(1));
-Screen('Flip',S,0,1,1,0);
-Screen('DrawTexture',S,tex(1));
-t0=GetSecs;
-t1=t0;
+% %% run
+% Screen('DrawTexture',S,tex(1));
+% Screen('Flip',S,0,1,1,0);
+% Screen('DrawTexture',S,tex(1));
+% t0=GetSecs;
+% t1=t0;
 
-while(t1-t0<60)
-    LUT=LUT([1+m:end,1:m],:);
-    Screen('LoadNormalizedGammaTable',S,LUT,2);
-    Screen('Flip',S,0,1,1,0);
+% while(t1-t0<60)
+    % LUT=LUT([1+m:end,1:m],:);
+    % Screen('LoadNormalizedGammaTable',S,LUT,2);
+    % Screen('Flip',S,0,1,1,0);
     
-    t1=GetSecs;
-    if KbCheck, break; end
-end
+    % t1=GetSecs;
+    % if KbCheck, break; end
+% end
 
-%% wrap
-RestoreCluts;
-sca;
+% %% wrap
+% RestoreCluts;
+% sca;
 
-##Screen('Preference','SuppressAllWarnings',0);
-##Screen('Preference','SkipSyncTests',0);
-
+% ##Screen('Preference','SuppressAllWarnings',0);
+% ##Screen('Preference','SkipSyncTests',0);
