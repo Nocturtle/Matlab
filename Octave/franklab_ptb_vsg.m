@@ -53,8 +53,8 @@ S=PsychImaging('OpenWindow',ssn,0);
 % Look-up tables ------------------------------------------------------------------
 %gratings LUT
 numLev=252;
-if sett.sinus, LUT=repmat(sin(linspace(-pi,pi,numLev),1,3);
-else, LUT=repmat(floor(linspace(0,1,numLev))',1,3); 
+if sett.sinus, LUT=(repmat(cos(linspace(-pi,pi,numLev))',1,3)+1)/2;
+else, LUT=repmat(round(linspace(0,1,numLev))',1,3); 
 end
 ##LUT=zeros(256,3);
 ##LUT(1:10,:)=1;
