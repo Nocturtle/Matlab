@@ -6,7 +6,7 @@ clear all
 clc
 %% settings : 1=enable & 0=disable unless otherwise noted
 sett=struct;
-sett.sinus=0;% enable/disable sinusoidal gratings
+sett.sinus=1;% enable/disable sinusoidal gratings
 sett.split=0;% enable/disable splitscreen
 sett.ang{1}=[180];% angles to use for left half (or full) of screen. 0 for greyscreen, -1 for CW, -2 for CCW
 sett.ang{2}=[90 360];% angles for right half (not used if splitscreen==0)
@@ -17,7 +17,7 @@ sett.isidur=1;% duration of inter-stimulus-interval
 sett.isicol=[0 0 0];% color of inter-stimulus-interval (0-1) [R G B]
 sett.seg=2;% split the stimulus into this many segments (number of white/black bar pairs, max=126?)
 sett.gsm=0;% choose gratings speed mode (0 or 1), see next two settings for details
-sett.gs0=[.1];% (cycles per second) this mode randomizes the gratings' speed pulling values from this list. one cycle is a bar passing from one side of the screen to the other horizontally.
+sett.gs0=[.2];% (cycles per second) this mode randomizes the gratings' speed pulling values from this list. one cycle is a bar passing from one side of the screen to the other horizontally.
 sett.gs1=[4 0.25 0.5 2];% [duration(s) modul_fs(hz) min_fs(hz) max_fs(hz)] this mode modulates the gratings' speed using these parameters
 sett.contrast=100;% 1-100, lowers brightness/whiteness
 sett.fixsz=10;% radius (pixels) of fixation point (0 to disable)
@@ -66,7 +66,7 @@ Screen('LoadNormalizedGammaTable',S,LUT,2);
 
 % gratings speed LUT
 if sett.gsm
-    stimdurfr=hz*sett.gs1(1); %stim duration in frames
+    stimdurfr=hz*sett.gs1(1)*.96; %stim duration in frames
     vel=sett.gs1(1)*sett.gs1(2)*pi*2;
     WAVE = cos(linspace(0,vel,stimdurfr+1)+pi);
     WAVE = (WAVE+1)/2;
@@ -75,7 +75,7 @@ if sett.gsm
     WAVE=(WAVE*(m2-m1)+m1)*sett.sdur;
     LS = abs(diff(floor(WAVE)))';
 else
-    stimdurfr=hz*sett.sdur; %stim duration in frames
+    stimdurfr=hz*sett.sdur*.96; %stim duration in frames
     ngs=length(sett.gs0);
     LS=zeros(stimdurfr,ngs);
     for i=1:ngs, LS(:,i)=diff(floor(linspace(1,numLev*sett.gs0(i)*sett.sdur,stimdurfr+1))); end
@@ -90,9 +90,10 @@ if sett.fixsz>0
     
     n=size(sett.fixcol,1);
     FLS=[];
+    test=Shuffle(1:n);
     for i=1:n
         c1=sett.fixcol(i,:);
-        for j=i+1:n
+##        for j=i+1:n
             c2=sett.fixcol(j,:);
             for k=1:3
                 if c1(k)>c2(k)
@@ -106,7 +107,7 @@ if sett.fixsz>0
                 endif
             end
             FLS=[FLS;temp];
-        end
+##        end
     end
     nFLS=length(FLS);
     
@@ -121,7 +122,7 @@ angs=unique(angs);
 
 [x,y]=meshgrid(linspace(-1,1,w),linspace(-1,1,h));
 [a,~]=cart2pol(x.*pi,y.*pi);
-a=mod((a+pi)./2./pi*sett.seg,1).*numLev;
+a=mod((a+pi)./2./pi*sett.seg,1).*(numLev-1);
 if sett.fixsz>0
     idx1=(h/2-sett.fixsz):(h/2+sett.fixsz);
     idx2=(w/2-sett.fixsz):(w/2+sett.fixsz);
@@ -129,20 +130,20 @@ if sett.fixsz>0
     ss(circle)=254;
     a(idx1,idx2)=ss;
 end
-tex(1)=Screen('MakeTexture',S,flip(a)); %CW
-tex(2)=Screen('MakeTexture',S,a); %CCW
+tex(1)=Screen('MakeTexture',S,flip(a),[],[]); %CW
+tex(2)=Screen('MakeTexture',S,a,[],[]); %CCW
 
 n=max(w,h);
 [x,y]=meshgrid(linspace(-1,1,n),linspace(-1,1,n));
 for i=1:length(angs)
     g=cosd(angs(i))*x+sind(angs(i))*y;
-    g=mod((g+sqrt(2))/sqrt(8)*sett.seg,1)*numLev;
+    g=mod((g+sqrt(2))/sqrt(8)*sett.seg,1)*(numLev-1);
     if sett.fixsz>0
         ss=g(idx1,idx2);
         ss(circle)=254;
         g(idx1,idx2)=ss;
     end
-    tex(i+2)=Screen('MakeTexture',S,g(1:h,1:w)); %Gratings
+    tex(i+2)=Screen('MakeTexture',S,g(1:h,1:w),[],[]); %Gratings
 end
 
 % prepare test order ------------------------------------------------
@@ -182,7 +183,8 @@ abstime=zeros(length(testOrder),1);
 %% ?!? ------------------------------------------------------------------
 % clearvars x y a g circle
 %% hold
-while(1), if KbStrokeWait, break; end, end
+HideCursor
+##while(1), if KbStrokeWait, break; end, end
 
 %% run
 flag=true;
@@ -191,7 +193,7 @@ ts=GetSecs; j=1; k=1; l=1; m=1;
 for i=1:size(testIDX,1)
 % ISI ---------------------------------------------------------------------
     Screen('FillRect',S,255);
-     [vbl onset flipts]=Screen('Flip',S);
+    Screen('Flip',S);
     t0=GetSecs; t1=t0;
     abstime(j)=t0-ts;
     while(t1-t0<sett.isidur) && flag
@@ -202,21 +204,21 @@ for i=1:size(testIDX,1)
     Screen('FillRect',S,253);
     for ii=1:1+sett.split
         ang=testIDX(i,ii);
-        if ang~=0, Screen('DrawTexture',S,tex(ang),[0 0 w h],[(ii-1)*w 0 ii*w h]); end
+        if ang~=0, Screen('DrawTexture',S,tex(ang),[0 0 w h],[(ii-1)*w 0 ii*w h],[],0); end
     end
     if ~sett.gsm, l=testIDX(i,end); end
     t0=GetSecs; t1=t0;
     abstime(j)=t0-ts;
-%     while(t1-t0<sett.sdur) && flag
-    for k=1:stimdurfr
+    while(t1-t0<sett.sdur) && flag
+##    for k=1:stimdurfr
         shift=LS(k,l);
         LUT=LUT([1+shift:numLev,1:shift,numLev+1:end],:);
         col=FLS(m,:);
         LUT(255,:)=col;
         Screen('LoadNormalizedGammaTable',S,LUT,2);
-    [vbl onset flipts] = Screen('Flip',S,0,1,1,0);
+        Screen('Flip',S,0,1,1,0);
 
-%         t1=GetSecs; k=mod(k,stimdurfr)+1;
+        t1=GetSecs; k=mod(k,stimdurfr)+1;
         m=mod(m,nFLS)+1;
         if KbCheck, flag=false; break; end
     end, j=j+1; 
@@ -230,7 +232,7 @@ for i=1:size(testIDX,1)
         col=FLS(m,:);
         LUT(255,:)=col;
         Screen('LoadNormalizedGammaTable',S,LUT,2);
-    vbl = Screen('Flip',S,vbl+1/hz,1,1,0);
+        Screen('Flip',S,0,1,1,0);
 
         t1=GetSecs; k=mod(k,stimdurfr)+1;
         m=mod(m,nFLS)+1;
@@ -251,13 +253,9 @@ end
     end
 
 %% wrap
+ShowCursor
 RestoreCluts;
 sca;
-catch err
-disp(err)
-RestoreCluts;
-sca;
-end
 %write stim log ---------------------------------------------------------------
 %     ii=1;
 %     temp = sett.fout;
@@ -273,6 +271,13 @@ end
 %        fprintf(fid,'%s\t%s\n',datestr(TS+seconds(abstime(ii)),'mm/dd/yyyy	HH:MM:SS.FFF'),testOrder{ii});  
 %     end 
 %     fclose(fid);
+
+catch err
+disp(err)
+ShowCursor
+RestoreCluts;
+sca;
+end
 %% local funtions
 
 
