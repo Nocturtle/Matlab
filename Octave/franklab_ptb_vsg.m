@@ -1,4 +1,5 @@
 
+
 %% safety
 close all
 fclose all
@@ -26,7 +27,7 @@ sett.fixcol=[0 0 1;...% color(s) the fixation point will switch between [R G B; 
             .5 .5 .5;...
             ];
 sett.fixparam=[5 0.5 .5 2];% [duration(s) modul_fs(hz) min_fs(hz) max_fs(hz)] parameters for the speed/duration that fixation point changes color
-sett.fout=[pwd,"default.txt"];% text file name for outputing stimuli information 
+sett.fout=["default"];% text file name for outputing stimuli information 
 
 %% uncomment to save/load settings
 % save('testVSGsettings','set');
@@ -66,7 +67,7 @@ Screen('LoadNormalizedGammaTable',S,LUT,2);
 
 % gratings speed LUT
 if sett.gsm
-    stimdurfr=hz*sett.gs1(1)*.96; %stim duration in frames
+    stimdurfr=hz*sett.gs1(1); %stim duration in frames
     vel=sett.gs1(1)*sett.gs1(2)*pi*2;
     WAVE = cos(linspace(0,vel,stimdurfr+1)+pi);
     WAVE = (WAVE+1)/2;
@@ -75,7 +76,7 @@ if sett.gsm
     WAVE=(WAVE*(m2-m1)+m1)*sett.sdur;
     LS = abs(diff(floor(WAVE)))';
 else
-    stimdurfr=hz*sett.sdur*.96; %stim duration in frames
+    stimdurfr=hz*sett.sdur; %stim duration in frames
     ngs=length(sett.gs0);
     LS=zeros(stimdurfr,ngs);
     for i=1:ngs, LS(:,i)=diff(floor(linspace(1,numLev*sett.gs0(i)*sett.sdur,stimdurfr+1))); end
@@ -92,9 +93,8 @@ if sett.fixsz>0
     FLS=[];
     test=Shuffle(1:n);
     for i=1:n
-        c1=sett.fixcol(i,:);
-##        for j=i+1:n
-            c2=sett.fixcol(j,:);
+        c1=sett.fixcol(test(mod(i-1,n)+1),:);
+        c2=sett.fixcol(test(mod(i,n)+1),:);
             for k=1:3
                 if c1(k)>c2(k)
                   temp(:,k)=(1-WAVE)*(c1(k)-c2(k))+c2(k);
@@ -107,7 +107,6 @@ if sett.fixsz>0
                 endif
             end
             FLS=[FLS;temp];
-##        end
     end
     nFLS=length(FLS);
     
@@ -193,7 +192,7 @@ ts=GetSecs; j=1; k=1; l=1; m=1;
 for i=1:size(testIDX,1)
 % ISI ---------------------------------------------------------------------
     Screen('FillRect',S,255);
-    Screen('Flip',S);
+    Screen('Flip',S,0,1,1,0);
     t0=GetSecs; t1=t0;
     abstime(j)=t0-ts;
     while(t1-t0<sett.isidur) && flag
@@ -257,20 +256,21 @@ ShowCursor
 RestoreCluts;
 sca;
 %write stim log ---------------------------------------------------------------
-%     ii=1;
-%     temp = sett.fout;
-%     sett.fout=[sett.fout,'.log'];
-%     while exist(sett.fout,'file')==2
-% %         updatestatus([filename,' already exists'])
-%         sett.fout=[temp,'(',num2str(ii),').log'];
-%         ii=ii+1;
-%     end
-%     updatestatus(['saving as: ',sett.fout])
-%     fid = fopen(sett.fout,'w');
-%     for ii=1:j-1
-%        fprintf(fid,'%s\t%s\n',datestr(TS+seconds(abstime(ii)),'mm/dd/yyyy	HH:MM:SS.FFF'),testOrder{ii});  
-%     end 
-%     fclose(fid);
+     ii=1;
+     pout=[pwd,'/logs/'];
+     if ~exist(pout,'dir'); mkdir(pout); end
+     filename=[pout,sett.fout,'.log'];
+     while exist(filename,'file')==2
+         disp([filename,' already exists'])
+         filename=[pout,sett.fout,'(',num2str(ii),').log'];
+         ii=ii+1;
+     end
+     disp(['saving as: ',filename])
+     fid = fopen(filename,'w');
+     for ii=1:j-1
+       fprintf(fid,'%s\t%s\n',datestr(datenum(TS)+abstime(ii)/86400,'mm/dd/yyyy	HH:MM:SS.FFF'),testOrder{ii});  
+     end 
+     fclose(fid);
 
 catch err
 disp(err)
