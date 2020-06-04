@@ -28,12 +28,19 @@ sett.fixcol=[0 0 1;...% color(s) the fixation point will switch between [R G B; 
             ];
 sett.fixparam=[5 0.5 .5 2];% [duration(s) modul_fs(hz) min_fs(hz) max_fs(hz)] parameters for the speed/duration that fixation point changes color
 sett.fout=["default"];% text file name for outputing stimuli information 
+##sett.foutfs1=['smb://fs1/franklab/D.Harvey/VSGlogs'];
 
 %% uncomment to save/load settings
 % save('testVSGsettings','set');
 % load('testVSGsettings');
 try
 %% setup 
+%rpi gpio
+ttl_pin=4;
+addpath(genpath('/home/pi/octave-rpi-gpio'));
+bcm2835_init();
+bcm2835_gpio_fsel(ttl_pin, 1);
+bcm2835_gpio_clr(ttl_pin)
 %get screen info ----------------------------------------------------
 Screen('Preference','VisualDebugLevel',1);
 ##Screen('Preference','SkipSyncTests',1);
@@ -183,7 +190,8 @@ abstime=zeros(length(testOrder),1);
 % clearvars x y a g circle
 %% hold
 HideCursor
-##while(1), if KbStrokeWait, break; end, end
+while(1), if KbStrokeWait, break; end, end
+bcm2835_gpio_set(ttl_pin);
 
 %% run
 flag=true;
@@ -252,6 +260,8 @@ end
     end
 
 %% wrap
+bcm2835_gpio_clr(ttl_pin);
+bcm2835_close();
 ShowCursor
 RestoreCluts;
 sca;
@@ -271,13 +281,19 @@ sca;
        fprintf(fid,'%s\t%s\n',datestr(datenum(TS)+abstime(ii)/86400,'mm/dd/yyyy	HH:MM:SS.FFF'),testOrder{ii});  
      end 
      fclose(fid);
+##     copyfile(filename,sett.foutfs1);
+##     disp(['copied ',sett.fout,' to ',sett.foutfs1]);
 
 catch err
 disp(err)
+bcm2835_gpio_clr(ttl_pin);
+bcm2835_close();
 ShowCursor
 RestoreCluts;
 sca;
 end
+
+
 %% local funtions
 
 
