@@ -31,7 +31,7 @@ sett.fout=["default"];% text file name for outputing stimuli information
 ##sett.foutfs1=['smb://fs1/franklab/D.Harvey/VSGlogs'];
 
 %% uncomment to save/load settings
-% save('testVSGsettings','set');
+% save('testVSGsettings','sett');
 % load('testVSGsettings');
 try
 %% setup 
