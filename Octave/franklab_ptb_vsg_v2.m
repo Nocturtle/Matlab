@@ -69,7 +69,7 @@ sett(B).ang{2}=[];% angle to use for thr 60-phase reversal
 sett(B).rand=0;% randomize the specified angles
 sett(B).sdur=30;% duration of each stimulus (seconds)
 sett(B).srep=1;% how many times to repeat each stimulus
-sett(B).rev=1;% enable/disable reversal of each angle specified above
+sett(B).rev=0;% enable/disable reversal of each angle specified above
 sett(B).isien=0;% enable/disable inter-stimulus-interval
 sett(B).isidur=0;% duration of inter-stimulus-interval
 sett(B).isicol=[.5 .5 .5];% color of inter-stimulus-interval (0-1) [R G B]
@@ -146,48 +146,48 @@ B=length(sett); %number of blocks specified by user
 numLev=252;
 
 for b=1:B
-	if sett{b}.wave == 0
+	if sett(b).wave == 0
 		LUT{b}=repmat(round(linspace(0,1,numLev))',1,3); %square wave
-	elseif sett{b}.wave == 1
+	elseif sett(b).wave == 1
 		LUT{b}=repmat(abs(abs(linspace(-1,1,numLev)')-1),1,3); %sawtooth wave
-	elseif sett{b}.wave == 2
+	elseif sett(b).wave == 2
 		LUT{b}=(repmat(cos(linspace(-pi,pi,numLev))',1,3)+1)/2; %sine wave
 	end
 	LUT{b}(254,:)=.5;% grey 
-	LUT{b}(255,:)=sett{b}.fixcol(1,:);% reserve for fixation point
-	LUT{b}(256,:)=sett{b}.isicol;% isi
-	LUT{b}=LUT{b}*sett{b}.contrast/100;
+	LUT{b}(255,:)=sett(b).fixcol(1,:);% reserve for fixation point
+	LUT{b}(256,:)=sett(b).isicol;% isi
+	LUT{b}=LUT{b}*sett(b).contrast/100;
 
 	% gratings speed LUT
-	if sett{b}.gsm
-		stimdurfr{b}=hz*sett{b}.gs1(1); %stim duration in frames
-		vel=sett{b}.gs1(1)*sett{b}.gs1(2)*pi*2;
+	if sett(b).gsm
+		stimdurfr{b}=hz*sett(b).gs1(1); %stim duration in frames
+		vel=sett(b).gs1(1)*sett(b).gs1(2)*pi*2;
 		WAVE = cos(linspace(0,vel,stimdurfr{b}+1)+pi);
 		WAVE = (WAVE+1)/2;
-		m1=numLev*sett{b}.gs1(3);
-		m2=numLev*sett{b}.gs1(4);
-		WAVE=(WAVE*(m2-m1)+m1)*sett{b}.sdur;
+		m1=numLev*sett(b).gs1(3);
+		m2=numLev*sett(b).gs1(4);
+		WAVE=(WAVE*(m2-m1)+m1)*sett(b).sdur;
 		LS{b} = abs(diff(floor(WAVE)))';
 	else
-		stimdurfr{b}=hz*sett{b}.sdur; %stim duration in frames
-		ngs=length(sett{b}.gs0);
+		stimdurfr{b}=hz*sett(b).sdur; %stim duration in frames
+		ngs=length(sett(b).gs0);
 		LS{b}=zeros(stimdurfr{b},ngs);
-		for i=1:ngs, LS{b}(:,i)=diff(floor(linspace(1,numLev*sett{b}.gs0(i)*sett{b}.sdur,stimdurfr{b}+1))); end
+		for i=1:ngs, LS{b}(:,i)=diff(floor(linspace(1,numLev*sett(b).gs0(i)*sett(b).sdur,stimdurfr{b}+1))); end
 	end
 
 	% fixation point color LUT
-	if sett{b}.fixsz>0
-		fixdurfr=hz*sett{b}.fixparam(1);
-		vel=sett{b}.fixparam(1)*sett{b}.fixparam(2)*2*pi;
+		FLS{b}=[];
+	if sett(b).fixsz>0
+		fixdurfr=hz*sett(b).fixparam(1);
+		vel=sett(b).fixparam(1)*sett(b).fixparam(2)*2*pi;
 		WAVE = cos(linspace(0,vel,fixdurfr)+pi);
 		WAVE = (WAVE+1)/2;
 		
-		n=size(sett{b}.fixcol,1);
-		FLS{b}=[];
+		n=size(sett(b).fixcol,1);
 		test=Shuffle(1:n);
 		for i=1:n
-			c1=sett{b}.fixcol(test(mod(i-1,n)+1),:);
-			c2=sett{b}.fixcol(test(mod(i,n)+1),:);
+			c1=sett(b).fixcol(test(mod(i-1,n)+1),:);
+			c2=sett(b).fixcol(test(mod(i,n)+1),:);
 				for k=1:3
 					if c1(k)>c2(k)
 					  temp(:,k)=(1-WAVE)*(c1(k)-c2(k))+c2(k);
@@ -203,21 +203,21 @@ for b=1:B
 		end
 		nFLS{b}=length(FLS{b});
 		
-		[cx,cy]=meshgrid(-sett{b}.fixsz:sett{b}.fixsz, -sett{b}.fixsz:sett{b}.fixsz);
-		circle = (cx.^2 + cy.^2 <= (sett{b}.fixsz)^2);
+		[cx,cy]=meshgrid(-sett(b).fixsz:sett(b).fixsz, -sett(b).fixsz:sett(b).fixsz);
+		circle = (cx.^2 + cy.^2 <= (sett(b).fixsz)^2);
 	end
 
 	% draw gratings textures ---------------------------------------------------
-	angs=sett{b}.ang{1}(sett{b}.ang{1}>0);
-	if sett{b}.split, angs=[angs,sett{b}.ang{2}(sett{b}.ang{2}>0)]; w=w/2; end
+	angs=sett(b).ang{1}(sett(b).ang{1}>0);
+	if sett(b).split, angs=[angs,sett(b).ang{2}(sett(b).ang{2}>0)]; w=w/2; end
 	angs=unique(angs);
 
 	[x,y]=meshgrid(linspace(-1,1,w),linspace(-1,1,h));
 	[a,~]=cart2pol(x.*pi,y.*pi);
-	a=mod((a+pi)./2./pi*sett{b}.seg,1).*(numLev-1);
-	if sett{b}.fixsz>0
-		idx1=(h/2-sett{b}.fixsz):(h/2+sett{b}.fixsz);
-		idx2=(w/2-sett{b}.fixsz):(w/2+sett{b}.fixsz);
+	a=mod((a+pi)./2./pi*sett(b).seg,1).*(numLev-1);
+	if sett(b).fixsz>0
+		idx1=(h/2-sett(b).fixsz):(h/2+sett(b).fixsz);
+		idx2=(w/2-sett(b).fixsz):(w/2+sett(b).fixsz);
 		ss=a(idx1,idx2);
 		ss(circle)=254;
 		a(idx1,idx2)=ss;
@@ -229,8 +229,8 @@ for b=1:B
 	[x,y]=meshgrid(linspace(-1,1,n),linspace(-1,1,n));
 	for i=1:length(angs)
 		g=cosd(angs(i))*x+sind(angs(i))*y;
-		g=mod((g+sqrt(2))/sqrt(8)*sett{b}.seg,1)*(numLev-1);
-		if sett{b}.fixsz>0
+		g=mod((g+sqrt(2))/sqrt(8)*sett(b).seg,1)*(numLev-1);
+		if sett(b).fixsz>0
 			ss=g(idx1,idx2);
 			ss(circle)=254;
 			g(idx1,idx2)=ss;
@@ -239,23 +239,23 @@ for b=1:B
 	end
 
 % prepare test order ------------------------------------------------
-	test=sett.ang{1};
-	if sett{b}.split, test=CombVec(test,sett{b}.ang{2}); end
-	if ~sett{b}.gsm, test=CombVec(test,sett{b}.gs0); end
+	test=sett(b).ang{1};
+	if sett(b).split, test=CombVec(test,sett(b).ang{2}); end
+	if ~sett(b).gsm, test=CombVec(test,sett(b).gs0); end
 	test=test';
 
 	testOrder{b}=[];
-	for i=1:sett{b}.srep
+	for i=1:sett(b).srep
 		idx = 1:size(test,1);
-		if sett{b}.rand, idx=Shuffle(idx); end
+		if sett(b).rand, idx=Shuffle(idx); end
 		testOrder{b}=[testOrder{b};test(idx,:)];
 	end
 
 	testIDX{b}=testOrder{b};
 	for i=1:length(angs)
-		testIDX{b}(testOrde{b}r==angs(i))=i+2;
+		testIDX{b}(testOrder{b}==angs(i))=i+2;
 	end
-	if ~sett{b}.gsm, testIDX{b}(:,end)=mod(find(testOrder{b}(:,end)'==sett{b}.gs0')+ngs-1,ngs)+1; end
+	if ~sett(b).gsm, testIDX{b}(:,end)=mod(find(testOrder{b}(:,end)'==sett(b).gs0')+ngs-1,ngs)+1; end
 	testIDX{b}=abs(testIDX{b});
 
 % prep text output -------------------------
@@ -264,12 +264,12 @@ for b=1:B
 	testOrder{b}(strcmp(testOrder{b},'0'))="graystim";
 	testOrder{b}(strcmp(testOrder{b},'-1'))="CW";
 	testOrder{b}(strcmp(testOrder{b},'-2'))="CCW";
-	if sett{b}.split, testOrder{b}(:,1)=strcat(testOrder{b}(:,1),'_',testOrder{b}(:,2)); testOrder{b}(:,2)=[]; end
-	if ~sett{b}.gsm, testOrder{b}(:,1)=strcat(testOrder{b}(:,1),'__',testOrder{b}(:,2)); testOrder{b}(:,2)=[]; end
-	if sett{b}.rev, testOrde{b}=[testOrder,strcat(testOrder{b},'_reversal')]; end
-	if q2.isidur>0, testOrder{b}=[repmat({"ISI"},length(testOrder{b}),1),testOrder{b}]; end
+	if sett(b).split, testOrder{b}(:,1)=strcat(testOrder{b}(:,1),'_',testOrder{b}(:,2)); testOrder{b}(:,2)=[]; end
+	if ~sett(b).gsm, testOrder{b}(:,1)=strcat(testOrder{b}(:,1),'__',testOrder{b}(:,2)); testOrder{b}(:,2)=[]; end
+	if sett(b).rev, testOrder{b}=[testOrder{b},strcat(testOrder{b},'_reversal')]; end
+	if sett(b).isidur>0, testOrder{b}=[repmat({"ISI"},length(testOrder{b}),1),testOrder{b}]; end
 	testOrder{b}=reshape(testOrder{b}',[],1);
-	testOrder{b}=[testOrder{b};{"ISI"}];
+	%testOrder{b}=[testOrder{b};{"ISI"}];
 
 	abstime{b}=zeros(length(testOrder{b}),1);
 end
@@ -290,52 +290,56 @@ for b=1:B
 	Screen('LoadNormalizedGammaTable',S,LUT{b},2);
 	for i=1:size(testIDX{b},1)
 	% ISI ---------------------------------------------------------------------
-	if sett{b}.isien
+	if sett(b).isien
 		Screen('FillRect',S,255);
 		Screen('Flip',S,0,1,1,0);
 		t0=GetSecs; t1=t0;
 		abstime{b}(j)=t0-ts;
-		while(t1-t0<sett{b}.isidur) && flag
+		while(t1-t0<sett(b).isidur) && flag
 			t1=GetSecs;
 			if KbCheck, flag=false; break; end
 		end, j=j+1;
 	end
 	% stim ------------------------------------------------------------------
 		Screen('FillRect',S,253);
-		for ii=1:1+sett{b}.split
+		for ii=1:1+sett(b).split
 			ang=testIDX{b}(i,ii);
 			if ang~=0, Screen('DrawTexture',S,tex{b}(ang),[0 0 w h],[(ii-1)*w 0 ii*w h],[],0); end
 		end
-		if ~sett{b}.gsm, l=testIDX{b}(i,end); end
+		if ~sett(b).gsm, l=testIDX{b}(i,end); end
 		t0=GetSecs; t1=t0;
 		abstime{b}(j)=t0-ts;
-		while(t1-t0<sett{b}.sdur) && flag
+		while(t1-t0<sett(b).sdur) && flag
 	##    for k=1:stimdurfr{b}
-			shift=LS(k,l);
+			shift=LS{b}(k,l);
 			LUT{b}=LUT{b}([1+shift:numLev,1:shift,numLev+1:end],:);
+      if sett(b).fixsz>0
 			col=FLS{b}(m,:);
 			LUT{b}(255,:)=col;
+			m=mod(m,nFLS{b})+1;
+      end
 			Screen('LoadNormalizedGammaTable',S,LUT{b},2);
 			Screen('Flip',S,0,1,1,0);
 
 			t1=GetSecs; k=mod(k,stimdurfr{b})+1;
-			m=mod(m,nFLS{b})+1;
 			if KbCheck, flag=false; break; end
 		end, j=j+1; 
 	% reversal ------------------------------------------------------------
-		if sett{b}.rev
+		if sett(b).rev
 		t0=GetSecs; t1=t0;
 		abstime{b}(j)=t0-ts;
-		while(t1-t0<sett{b}.sdur) && flag
-			shift=LS(k,l);
+		while(t1-t0<sett(b).sdur) && flag
+			shift=LS{b}(k,l);
 			LUT{b}=LUT{b}([numLev-shift+1:numLev,1:numLev-shift,numLev+1:end],:);
+      if sett(b).fixsz
 			col=FLS{b}(m,:);
 			LUT{b}(255,:)=col;
+			m=mod(m,nFLS{b})+1;
+      end
 			Screen('LoadNormalizedGammaTable',S,LUT{b},2);
 			Screen('Flip',S,0,1,1,0);
 
 			t1=GetSecs; k=mod(k,stimdurfr{b})+1;
-			m=mod(m,nFLS{b})+1;
 			if KbCheck, flag=false; break; end
 		end, j=j+1;
 		end
@@ -348,7 +352,7 @@ end
 %    Screen('Flip',S);
 %    t0=GetSecs; t1=t0;
 %    abstime(j)=t0-ts;
-%    while(t1-t0<sett{b}.isidur) && flag
+%    while(t1-t0<sett(b).isidur) && flag
 %        t1=GetSecs;
 %        if KbCheck, flag=false; break; end
 %    end
