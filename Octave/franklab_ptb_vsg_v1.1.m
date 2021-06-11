@@ -244,13 +244,15 @@ bcm2835_gpio_set(ttl_pin_aux);
 ##    for k=1:stimdurfr
         shift=LS(k,l);
         LUT=LUT([1+shift:numLev,1:shift,numLev+1:end],:);
-        col=FLS(m,:);
-        LUT(255,:)=col;
+        if set.fixsz>0
+          col=FLS(m,:);
+          LUT(255,:)=col;
+          m=mod(m,nFLS)+1;
+        end
         Screen('LoadNormalizedGammaTable',S,LUT,2);
         Screen('Flip',S,0,1,1,0);
 
         t1=GetSecs; k=mod(k,stimdurfr)+1;
-        m=mod(m,nFLS)+1;
         if KbCheck, flag=false; break; end
     end, j=j+1; 
 % reversal ------------------------------------------------------------
@@ -260,13 +262,15 @@ bcm2835_gpio_set(ttl_pin_aux);
     while(t1-t0<sett.sdur) && flag
         shift=LS(k,l);
         LUT=LUT([numLev-shift+1:numLev,1:numLev-shift,numLev+1:end],:);
-        col=FLS(m,:);
-        LUT(255,:)=col;
+        if set.fixsz>0
+          col=FLS(m,:);
+          LUT(255,:)=col;
+          m=mod(m,nFLS)+1;
+        end
         Screen('LoadNormalizedGammaTable',S,LUT,2);
         Screen('Flip',S,0,1,1,0);
 
         t1=GetSecs; k=mod(k,stimdurfr)+1;
-        m=mod(m,nFLS)+1;
         if KbCheck, flag=false; break; end
     end, j=j+1;
     end
